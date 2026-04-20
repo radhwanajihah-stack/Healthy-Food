@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nutrition Quest: Zoe's Adventure</title>
+    <style>
+        :root {
+            /* General Theme Colors */
+            --sky: #a2d2ff;
+            --road: #95a5a6;
+            --accent: #ff6b6b;
+            --primary: #4bcffa;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            background: #2c3e50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #fff;
+        }
+
+        h1 { margin: 10px; text-shadow: 2px 2px #000; }
+
+        /* --- THE STAGE (MAIN GAME WINDOW) --- */
+        #game-stage {
+            width: 100%;
+            max-width: 800px;
+            height: 350px;
+            /* Default Background (will be overridden by JS) */
+            background-color: var(--sky);
+            background-image: url('bg1.png'); /* Default Level 1 BG */
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            overflow: hidden;
+            border: 6px solid #fff;
+            border-radius: 20px;
+            box-shadow: 0 10px 0px #1a252f;
+            transition: background-image 1s ease;
+        }
+
+        /* --- Ground and Road (Still CSS) --- */
+        #ground {
+            position: absolute;
+            bottom: 0; width: 100%; height: 100px;
+            background: rgba(123, 192, 67, 0.5); /* Semi-transparent grass */
+            border-top: 8px solid #5d9632;
+        }
+
+        #road {
+            position: absolute;
+            bottom: 20px; width: 100%; height: 40px;
+            background: rgba(149, 165, 166, 0.7); /* Semi-transparent road */
+        }
+
+        /* --- NEW: IMAGE-BASED CHARACTERS --- */
+        #zoe {
+            position: absolute;
+            bottom: 45px; left: 50px;
+            width: 80px; /* Adjust size based on your GIF */
+            height: auto;
+            /* Use your transparent running girl GIF */
+            content: url('zoe.gif');
+            transition: all 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10;
+            filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.3));
+        }
+
+        #obstacle {
+            position: absolute;
+            bottom: 45px; right: 80px;
+            font-size: 80px; /* Keep emojis for simplicity, but larger */
+            transition: all 0.5s ease;
+            z-index: 5;
+        }
+
+        /* Running Animation */
+        .running {
+            animation: bounce 0.3s infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        /* --- UI PANEL --- */
+        #ui-panel {
+            width: 95%;
+            max-width: 780px;
+            background: #fdfdfd;
+            border-radius: 0 0 20px 20px;
+            padding: 20px;
+            color: #333;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        #level-header {
+            background: #ff9f43;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 10px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        #sentence-box {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f1f2f6;
+            border-left: 10px solid #ff9f43;
+            border-radius: 5px;
+        }
+
+        #feedback {
+            font-size: 1.1rem;
+            height: 30px;
+            font-weight: bold;
+            color: #7f8c8d;
+        }
+
+        /* --- BUTTONS --- */
+        .controls { display: flex; justify-content: center; gap: 15px; }
+
+        .btn {
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: 0.2s;
+            box-shadow: 0 5px 0 #bdc3c7;
+        }
+
+        #mic-btn { background: #ff6b6b; color: white; box-shadow: 0 5px 0 #c0392b; }
+        #mic-btn.recording { background: #ff4757; animation: pulse 1s infinite; transform: translateY(3px); box-shadow: none; }
+        
+        #next-btn { background: #4bcffa; color: white; box-shadow: 0 5px 0 #0984e3; display: none; }
+        
+        .btn:active { transform: translateY(3px); box-shadow: none; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+        /* Tunnel Effect (Darkens the whole stage) */
+        .dark-tunnel { filter: brightness(0.2); }
+        .glow { filter: brightness(1) drop-shadow(0 0 30px #f1c40f) !important; }
+
+        /* Final Victory Image Overlay */
+        #final-overlay {
+            position: absolute;
+            inset: 0;
+            background-color: rgba(255,255,255,0.95);
+            background-image: url('cafe.png');
+            background-size: contain;
+            background-position: center;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            text-align: center;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🍎 Nutrition Quest</h1>
+
+    <div id="game-stage">
+        <div id="final-overlay">
+            <h2>🏆 YOU WON!</h2>
+            <p>Zoe is safe at the Healthy Cafe!</p>
+            <button class="btn" style="background:var(--accent)" onclick="location.reload()">Play Again</button>
+        </div>
+
+        <div id="ground">
+            <div id="road"></div>
+        </div>
+
+        <img id="zoe" src="zoe.gif" class="running" alt="Zoe Running">
+        
+        <div id="obstacle">🥤</div>
+    </div>
+
+    <div id="ui-panel">
+        <div id="level-header">Level 1: The Energy Gate</div>
+        <div id="sentence-box">"I choose the Sweet Potato for long-lasting energy!"</div>
+        <div id="feedback">Press the mic and speak!</div>
+
+        <div class="controls">
+            <button id="mic-btn" class="btn">🎤 Hold to Speak</button>
+            <button id="next-btn" class="btn">Next Challenge ➔</button>
+        </div>
+    </div>
+
+    <script>
+        const levels = [
+            { 
+                title: "Level 1: The Energy Gate", 
+                s: "I choose the Sweet Potato for long-lasting energy!", 
+                o: "🥤", 
+                bg: "bg1.png", // ADDED BACKGROUND IMAGE
+                reward: "The Soda Monster shrinks!", 
+                dark: false 
+            },
+            { 
+                title: "Level 2: The Muscle Bridge", 
+                s: "Grilled Salmon builds my strong muscles!", 
+                o: "🌉", 
+                bg: "bg2.png", // ADDED BACKGROUND IMAGE
+                reward: "The bridge is fixed!", 
+                dark: false 
+            },
+            { 
+                title: "Level 3: The Glow Tunnel", 
+                s: "Avocados have healthy fats for glowing skin!", 
+                o: "🥑", 
+                bg: "bg3.png", // ADDED BACKGROUND IMAGE
+                reward: "Zoe is glowing!", 
+                dark: true 
+            },
+            { 
+                title: "Level 4: The Final Boss", 
+                s: "I avoid the Salty Trap and eat fresh food!", 
+                o: "🍜", 
+                bg: "bg4.png", // ADDED BACKGROUND IMAGE
+                reward: "The Salt King melts!", 
+                dark: false 
+            }
+        ];
+
+        let current = 0;
+        const micBtn = document.getElementById('mic-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const zoe = document.getElementById('zoe');
+        const obstacle = document.getElementById('obstacle');
+        const stage = document.getElementById('game-stage');
+        const finalOverlay = document.getElementById('final-overlay');
+
+        // Recognition Setup (No changes)
+        const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!Speech) {
+            alert("Please use Chrome or Edge for voice recognition!");
+        }
+        const rec = new Speech();
+        rec.continuous = false;
+        rec.lang = 'en-US';
+
+        micBtn.onmousedown = () => {
+            rec.start();
+            micBtn.classList.add('recording');
+            micBtn.innerText = "Listening...";
+        };
+
+        micBtn.onmouseup = () => {
+            rec.stop();
+            micBtn.classList.remove('recording');
+            micBtn.innerText = "🎤 Hold to Speak";
+        };
+
+        rec.onresult = (e) => {
+            const result = e.results[0][0].transcript.toLowerCase();
+            // Checking logic (unchanged)
+            const keywords = ["potato", "salmon", "avocado", "salty", "fresh"];
+            if (keywords.some(word => result.includes(word)) || result.length > 15) {
+                handleWin();
+            } else {
+                document.getElementById('feedback').innerText = "Try again! Zoe is stuck!";
+                document.getElementById('feedback').style.color = "#e74c3c";
+            }
+        };
+
+        function handleWin() {
+            document.getElementById('feedback').innerText = "Perfect! " + levels[current].reward;
+            document.getElementById('feedback').style.color = "#27ae60";
+            micBtn.style.display = "none";
+            nextBtn.style.display = "inline-block";
+
+            // Visual Rewards
+            if (current === 0) obstacle.style.transform = "scale(0.3) rotate(20deg)";
+            if (current === 1) obstacle.innerText = "✅";
+            if (current === 2) zoe.classList.add('glow'); // Flashlight logic
+            if (current === 3) obstacle.style.opacity = "0"; // Boss melts
+
+            // NEW: Keep Zoe 'Running' (bounce) only while she moves
+            zoe.classList.add('running');
+            zoe.style.left = "450px";
+            // Stop animation after 1 second (end of movement)
+            setTimeout(() => zoe.classList.remove('running'), 1000); 
+        }
+
+        nextBtn.onclick = () => {
+            current++;
+            if (current < levels.length) {
+                // UPDATE UI (New: Background Image change)
+                document.getElementById('level-header').innerText = levels[current].title;
+                document.getElementById('sentence-box').innerText = `"${levels[current].s}"`;
+                obstacle.innerText = levels[current].o;
+                
+                // NEW: Change background image for the stage
+                stage.style.backgroundImage = `url('${levels[current].bg}')`;
+
+                // RESET ZOE & Visuals
+                zoe.style.left = "50px";
+                zoe.classList.remove('glow'); // Reset flashlight
+                micBtn.style.display = "inline-block";
+                nextBtn.style.display = "none";
+                document.getElementById('feedback').innerText = "Press the mic and speak!";
+                document.getElementById('feedback').style.color = "#7f8c8d";
+                obstacle.style.transform = "scale(1)";
+                obstacle.style.opacity = "1";
+
+                // Dark mode toggle (slightly revised)
+                if (levels[current].dark) stage.classList.add('dark-tunnel');
+                else stage.classList.remove('dark-tunnel');
+
+            } else {
+                // VICTORY: Display the final Cafe overlay
+                finalOverlay.style.display = "flex";
+                // Optionally stop Zoe's bounce entirely
+                zoe.classList.remove('running');
+            }
+        };
+    </script>
+</body>
+</html>
